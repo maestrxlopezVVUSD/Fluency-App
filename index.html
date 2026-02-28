@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fluency Tracker Pro - Reading Assessment Tool</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --secondary: #0f172a;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #fef08a;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --bg-light: #f8fafc;
+        }
+
+        body { 
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; 
+            max-width: 900px; 
+            margin: auto; 
+            padding: 20px; 
+            background: var(--bg-light); 
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+
+        #container { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
+        }
+
+        header { text-align: center; margin-bottom: 30px; }
+        h1 { color: var(--secondary); margin-bottom: 8px; font-size: 2.2rem; }
+        .subtitle { color: var(--text-muted); font-size: 1.1rem; }
+        
+        #passage-area { 
+            font-size: 24px; 
+            line-height: 2; 
+            margin: 20px 0; 
+            padding: 30px; 
+            border: 2px solid var(--primary); 
+            border-radius: 12px; 
+            background: #ffffff; 
+            min-height: 200px; 
+            max-height: 600px;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .passage-title {
+            display: block;
+            font-weight: 700;
+            text-align: center;
+            font-size: 28px;
+            margin-bottom: 32px;
+            color: var(--secondary);
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .word { 
+            display: inline-block; 
+            margin-right: 8px; 
+            color: var(--text-main); 
+            transition: all 0.15s ease; 
+            border-bottom: 2px solid transparent;
+        }
+        .correct { color: var(--success); font-weight: 600; }
+        .error { color: var(--danger); text-decoration: line-through; font-weight: 600; }
+        .active-word {
+            background-color: var(--warning);
+            border-radius: 4px;
+            padding: 0 4px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+        
+        .stats-bar { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 15px;
+            background: var(--secondary); 
+            color: white; 
+            padding: 20px; 
+            border-radius: 12px; 
+            margin-bottom: 20px; 
+        }
+        .stat-box { text-align: center; border-right: 1px solid #334155; }
+        .stat-box:last-child { border-right: none; }
+        .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; }
+        .stat-value { font-size: 1.8rem; font-weight: bold; display: block; margin-top: 4px; }
+        
+        .controls { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+        button { 
+            flex: 1;
+            min-width: 160px;
+            padding: 16px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            border: none; 
+            border-radius: 8px; 
+            transition: transform 0.1s, background 0.2s; 
+            font-weight: 600; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        button:active { transform: scale(0.98); }
+
+        #start-btn { background: var(--primary); color: white; }
+        #start-btn:hover { background: var(--primary-dark); }
+        #stop-btn { background: var(--danger); color: white; display: none; }
+        #save-btn { background: #475569; color: white; display: none; }
+        #mic-check-btn { background: #e2e8f0; color: #475569; font-size: 14px; }
+        
+        #input-text { display: none; width: 100%; margin-top: 15px; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; }
+        .setup-section { margin-top: 20px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 15px; }
+        .toggle-edit { color: var(--text-muted); cursor: pointer; font-size: 0.85rem; text-decoration: underline; }
+        
+        .status-msg {
+            text-align: center;
+            padding: 12px;
+            font-weight: 600;
+            color: var(--primary);
+            min-height: 24px;
+        }
+        
+        .timer-warning { color: #f87171 !important; animation: pulse 1s infinite; }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        @media (max-width: 600px) {
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .stat-box:nth-child(2) { border-right: none; }
+            #container { padding: 20px; }
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="container">
+    <header>
+        <h1>Fluency Tracker Pro</h1>
+        <p class="subtitle">1-Minute Oral Reading Fluency Assessment</p>
+    </header>
+    
+    <div class="stats-bar">
+        <div class="stat-box">
+            <span class="stat-label">Attempted</span>
+            <span id="total-count" class="stat-value">0</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Errors</span>
+            <span id="error-count" class="stat-value">0</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">WCPM</span>
+            <span id="wpm" class="stat-value">0</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Seconds</span>
+            <span id="timer" class="stat-value">60</span>
+        </div>
+    </div>
+
+    <div id="status" class="status-msg">Initializing...</div>
+
+    <div id="passage-area"></div>
+
+    <div class="controls">
+        <button id="start-btn" onclick="startTest()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            Start Assessment
+        </button>
+        <button id="stop-btn" onclick="stopTest()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
+            Stop Early
+        </button>
+        <button id="save-btn" onclick="downloadReport()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            Save Results
+        </button>
+        <button id="mic-check-btn" onclick="requestMicPermission()">
+            Check Microphone
+        </button>
+    </div>
+
+    <div class="setup-section">
+        <span class="toggle-edit" onclick="toggleTextarea()">Custom Passage Settings</span>
+        <textarea id="input-text" rows="5" placeholder="Paste your reading passage here...">Our herd of sheep was ruled by a cruel shepherd for years. At last we couldn't stand it any longer. We began to stay awake each night until the shepherd had gone to bed. Then we would plan our escape. Finally, the time came to make our move. Late one night, our herd crept quietly out of the pasture while the shepherd and his dogs slept. We are finally free! I thought as we entered the dark forest.
+
+Life was hard when we lived with the shepherd, but I learned that it was even harder on our own. Trouble came when we needed to find a place to graze. Our group came to a fork in the path. "There's a wide, green pasture that way," an old gray sheep said, pointing to the path that led downhill. "I remember the shepherd took us there once to graze. There was plenty for everyone to eat."
+
+"We can't go there!" a younger brown sheep said. "If the shepherd took you to graze in that pasture, he knows where it is. Besides, it's completely surrounded by forest. We would never see the shepherd coming if he tried to sneak up on us." The brown sheep pointed to the other path. It led uphill. "There are fewer trees on the mountain. There must be a pasture there. And if the shepherd comes looking for us, we'll see him before he sees us."
+
+Each of the other sheep took the side of either the old gray sheep or the young brown sheep. The herd argued for hours, but we still could not decide where to graze. Finally we all got so tired of arguing that we fell asleep. Just before I fell asleep, I had an idea. We could choose one sheep to be our leader! This sheep could hear the other sheep's ideas and decide what to do. This way, we wouldn't have to spend all of our time arguing. I would tell the other sheep in the morning.
+
+When I woke up, the others had already taken up where they had left off and were arguing over where to graze. So I shouted, "Quiet, everyone!" The herd fell silent and looked at me. "We can't argue every time we need to make a decision," I began. "We need to choose someone we trust to lead us. This sheep will listen to our ideas and make the most important decisions for us. We may not like every decision our leader makes, but at least our voices will be heard. And if we choose a new leader each month, the sheep who feel that their voices aren't being heard will have another chance to share their ideas."
+
+The herd liked my idea, so we set out to choose a leader. The sheep would vote by putting a brown leaf into a pile if they wanted the young ram to lead, a green leaf if they wanted the old gray sheep, and a red leaf if they wanted me. Each sheep voted. When we counted the leaves, I had won the most votes!</textarea>
+    </div>
+</div>
+
+<script>
+    let recognition;
+    let startTime;
+    let timerInterval;
+    let wordElements = [];
+    let currentWordIndex = 0;
+    let errorCount = 0;
+    let isTracking = false;
+    const TIME_LIMIT = 60;
+    let storyTitle = "The Sheep in the Wilderness";
+
+    window.onload = function() {
+        preparePassage();
+        initSpeech();
+    };
+
+    function initSpeech() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+            updateStatus("Browser not supported. Please use Chrome.", "red");
+            return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+            updateStatus("Listening... Read clearly into the microphone.", "var(--success)");
+        };
+
+        recognition.onresult = (event) => {
+            if (!isTracking) return;
+            let latestTranscript = "";
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                latestTranscript += event.results[i][0].transcript;
+            }
+            processSpeech(latestTranscript.toLowerCase());
+        };
+
+        recognition.onend = () => {
+            if (isTracking) {
+                try { recognition.start(); } catch (e) {}
+            }
+        };
+        
+        recognition.onerror = (event) => {
+            if (event.error === 'not-allowed') {
+                updateStatus("Microphone access denied. Check site permissions.", "red");
+                stopTest();
+            }
+        };
+
+        updateStatus("Ready. Click Start to begin.", "var(--primary)");
+    }
+
+    function updateStatus(msg, color) {
+        const el = document.getElementById('status');
+        el.innerText = msg;
+        el.style.color = color || "var(--primary)";
+    }
+
+    async function requestMicPermission() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(track => track.stop());
+            updateStatus("Microphone ready!", "var(--primary)");
+        } catch (err) {
+            updateStatus("Mic Permission Error: " + err.message, "red");
+        }
+    }
+
+    function preparePassage() {
+        const text = document.getElementById('input-text').value;
+        const words = text.trim().split(/\s+/);
+        const display = document.getElementById('passage-area');
+        display.innerHTML = '';
+        
+        const titleEl = document.createElement('div');
+        titleEl.className = 'passage-title';
+        titleEl.innerText = storyTitle;
+        display.appendChild(titleEl);
+        
+        wordElements = words.map(w => {
+            const span = document.createElement('span');
+            span.innerText = w;
+            span.className = 'word';
+            display.appendChild(span);
+            return { 
+                word: w.toLowerCase().replace(/[^\w]/g, ""), 
+                element: span
+            };
+        });
+    }
+
+    function startTest() {
+        if (!recognition) {
+            initSpeech();
+            if (!recognition) return;
+        }
+
+        isTracking = true;
+        currentWordIndex = 0;
+        errorCount = 0;
+        
+        document.getElementById('error-count').innerText = "0";
+        document.getElementById('total-count').innerText = "0";
+        document.getElementById('wpm').innerText = "0";
+        document.getElementById('timer').innerText = TIME_LIMIT;
+        document.getElementById('timer').classList.remove('timer-warning');
+        
+        wordElements.forEach(item => item.element.className = 'word');
+        
+        startTime = Date.now();
+        
+        try { recognition.start(); } catch(e) {}
+
+        document.getElementById('start-btn').style.display = 'none';
+        document.getElementById('stop-btn').style.display = 'flex';
+        document.getElementById('save-btn').style.display = 'none';
+        
+        if (wordElements.length > 0) {
+            wordElements[0].element.classList.add('active-word');
+            wordElements[0].element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        timerInterval = setInterval(() => {
+            const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+            const remaining = TIME_LIMIT - elapsedSeconds;
+            
+            document.getElementById('timer').innerText = Math.max(0, remaining);
+            if (remaining <= 10) document.getElementById('timer').classList.add('timer-warning');
+
+            updateWPM(elapsedSeconds);
+
+            if (remaining <= 0) stopTest();
+        }, 1000);
+    }
+
+    function processSpeech(spokenText) {
+        const spokenWords = spokenText.split(/\s+/);
+        const lastSpoken = spokenWords.slice(-4); // Wider window for stability
+
+        for (const spoken of lastSpoken) {
+            const cleanSpoken = spoken.replace(/[^\w]/g, "");
+            if (cleanSpoken.length < 1) continue;
+
+            if (currentWordIndex < wordElements.length) {
+                if (wordElements[currentWordIndex].word === cleanSpoken) {
+                    markCurrent(true);
+                    return;
+                }
+                
+                // Advanced Lookahead to catch skips
+                for (let skip = 1; skip <= 4; skip++) {
+                    if (currentWordIndex + skip < wordElements.length) {
+                        if (wordElements[currentWordIndex + skip].word === cleanSpoken) {
+                            for(let i=0; i<skip; i++) markCurrent(false);
+                            markCurrent(true);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function markCurrent(isCorrect) {
+        if (currentWordIndex >= wordElements.length) return;
+        
+        const item = wordElements[currentWordIndex];
+        item.element.classList.remove('active-word');
+        
+        if (isCorrect) {
+            item.element.classList.add('correct');
+        } else {
+            item.element.classList.add('error');
+            errorCount++;
+            document.getElementById('error-count').innerText = errorCount;
+        }
+        
+        currentWordIndex++;
+        document.getElementById('total-count').innerText = currentWordIndex;
+        
+        if (currentWordIndex < wordElements.length) {
+            const nextItem = wordElements[currentWordIndex];
+            nextItem.element.classList.add('active-word');
+            nextItem.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            stopTest();
+        }
+    }
+
+    function updateWPM(elapsedSeconds) {
+        const attempted = currentWordIndex;
+        const correct = attempted - errorCount;
+        
+        if (elapsedSeconds > 0) {
+            const rate = (correct / Math.min(60, elapsedSeconds)) * 60;
+            document.getElementById('wpm').innerText = Math.round(rate);
+        }
+    }
+
+    function stopTest() {
+        if (!isTracking) return;
+        isTracking = false;
+        try { recognition.stop(); } catch(e) {}
+        clearInterval(timerInterval);
+        
+        updateStatus("Assessment complete.", "var(--secondary)");
+
+        document.getElementById('stop-btn').style.display = 'none';
+        document.getElementById('start-btn').style.display = 'flex';
+        document.getElementById('start-btn').innerText = 'Restart Test';
+        document.getElementById('save-btn').style.display = 'flex';
+        
+        const active = document.querySelector('.active-word');
+        if (active) active.classList.remove('active-word');
+    }
+
+    function toggleTextarea() {
+        const ta = document.getElementById('input-text');
+        ta.style.display = ta.style.display === 'none' ? 'block' : 'none';
+        if (ta.style.display === 'none') {
+            const lines = ta.value.split('\n').filter(l => l.trim() !== '');
+            if (lines.length > 0 && lines[0].length < 100) storyTitle = lines[0];
+            preparePassage();
+        }
+    }
+
+    function downloadReport() {
+        const studentName = prompt("Enter Student Name:", "Student");
+        if (!studentName) return;
+
+        const date = new Date().toLocaleDateString();
+        const totalAttempted = currentWordIndex;
+        const finalErrors = errorCount;
+        const wordsCorrect = totalAttempted - finalErrors;
+        const finalWCPM = document.getElementById('wpm').innerText;
+        
+        const content = `Reading Fluency Report\n` +
+                        `======================\n` +
+                        `Student: ${studentName}\n` +
+                        `Date: ${date}\n` +
+                        `Passage: ${storyTitle}\n\n` +
+                        `Metric Scores:\n` +
+                        `- Total Words Attempted: ${totalAttempted}\n` +
+                        `- Reading Errors: ${finalErrors}\n` +
+                        `- Words Correct: ${wordsCorrect}\n` +
+                        `- WCPM (Adjusted): ${finalWCPM}\n\n` +
+                        `Generated by Fluency Tracker Pro`;
+
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${studentName.replace(/\s+/g, '_')}_Report_${date.replace(/\//g, '-')}.txt`;
+        a.click();
+    }
+</script>
+
+</body>
+</html>
